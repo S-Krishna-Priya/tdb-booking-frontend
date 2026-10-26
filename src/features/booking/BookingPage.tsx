@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react'
 import { createBooking, getSlots, getTemples } from '../../api/mockApi'
-import { ApiError, type Booking, type Slot, type Temple } from '../../types/booking'
+import type { Booking, Slot, Temple } from '../../types/booking'
 import { addIstDays, formatIstDateKey, istDateKey } from '../../utils/datetime'
+import { errorMessage } from '../../utils/errors'
 import { BookingForm } from './BookingForm'
 import { SlotList } from './SlotList'
 
 type Loaded<T> = { key: string; ok: true; data: T } | { key: string; ok: false; message: string }
-
-function errorMessage(error: unknown): string {
-  return error instanceof ApiError || error instanceof Error
-    ? error.message
-    : 'Something went wrong. Please try again.'
-}
 
 function nextSevenDays(): string[] {
   const today = istDateKey(new Date())
