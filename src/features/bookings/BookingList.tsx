@@ -1,0 +1,118 @@
+import type { Booking, BookingId } from '../../types/booking'
+import { formatIstDateKey, formatIstTime } from '../../utils/datetime'
+import { cancelAvailability, statusLabel } from './cancellation'
+
+interface BookingListProps {
+  bookings: readonly Booking[]
+  now: Date
+  confirmingId: BookingId | null
+  onRequestConfirm: (bookingId: BookingId) => void
+  onDismissConfirm: () => void
+  onConfirmCancel: (bookingId: BookingId) => void
+}
+
+const BUTTON_CLASS =
+  'rounded-md px-3 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500'
+
+export function BookingList({
+  bookings,
+  now,
+  confirmingId,
+  onRequestConfirm,
+  onDismissConfirm,
+  onConfirmCancel,
+}: BookingListProps) {
+  return (
+    <ul className="mt-4 space-y-4">
+      {bookings.map((booking) => {
+        const availability = cancelAvailability(booking, now)
+        const titleId = `booking-${booking.id}-temple`
+        const promptId = `booking-${booking.id}-prompt`
+        const date = formatIstDateKey(booking.date)
+        const time = formatIstTime(booking.startsAt)
+
+        return (
+          <li key={booking.id}>
+            <article
+              aria-labelledby={titleId}
+              className="rounded-lg border border-slate-300 bg-white p-4"
+            >
+              <h3 id={titleId} className="text-base font-semibold text-slate-900">
+                {booking.templeName}
+              </h3>
+
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
+                <div>
+                  <dt className="text-slate-600">Date</dt>
+                  <dd className="font-medium text-slate-900">{date}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-600">Start time</dt>
+                  <dd className="font-medium text-slate-900">{time} IST</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-600">Tickets</dt>
+                  <dd className="font-medium text-slate-900">{booking.tickets}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-600">Status</dt>
+                  <dd className="font-medium text-slate-900">{statusLabel(booking.status)}</dd>
+                </div>
+              </dl>
+
+              {availability.kind === 'blocked' ? (
+                <p className="mt-3 rounded-md bg-slate-100 p-3 text-sm text-slate-700">
+                  {availability.reason}
+                </p>
+              ) : null}
+
+              {availability.kind === 'available' && confirmingId !== booking.id ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onRequestConfirm(booking.id)
+                  }}
+                  aria-label={`Cancel booking for ${booking.templeName}`}
+                  className={`${BUTTON_CLASS} mt-3 border border-red-300 text-red-800 hover:bg-red-50`}
+                >
+                  Cancel booking
+                </button>
+              ) : null}
+
+              {availability.kind === 'available' && confirmingId === booking.id ? (
+                <div
+                  role="group"
+                  aria-labelledby={promptId}
+                  className="mt-3 rounded-md border border-red-200 bg-red-50 p-3"
+                >
+                  <p id={promptId} className="text-sm text-red-900">
+                    Cancel {booking.tickets} ticket{booking.tickets === 1 ? '' : 's'} for{' '}
+                    {booking.templeName} on {date} at {time} IST? This cannot be undone.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onConfirmCancel(booking.id)
+                      }}
+                      className={`${BUTTON_CLASS} bg-red-700 text-white hover:bg-red-800`}
+                    >
+                      Yes, cancel booking
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onDismissConfirm}
+                      className={`${BUTTON_CLASS} border border-slate-300 text-slate-800 hover:bg-white`}
+                    >
+                      Keep booking
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </article>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
