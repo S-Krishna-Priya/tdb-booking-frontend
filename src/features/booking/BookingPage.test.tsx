@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { BookingPage } from './BookingPage'
 import {
   __clearSlots,
+  __getAllBookings,
+  __getCreateBookingKeys,
   __getSlotById,
+  __holdRequests,
   __setSlots,
   configureMockApi,
   resetMockApi,
@@ -41,13 +44,32 @@ beforeEach(() => {
   __setSlots([OPEN, FULL, STARTED])
 })
 
-async function fillAndBook(user: ReturnType<typeof userEvent.setup>, tickets: string) {
+type User = ReturnType<typeof userEvent.setup>
+
+function bookButton() {
+  return screen.getByRole('button', { name: /^book$/i })
+}
+
+async function fillDetails(user: User, tickets: string) {
   await user.type(screen.getByLabelText(/name/i), 'Asha')
   await user.type(screen.getByLabelText(/phone number/i), '9876543210')
+  await setTickets(user, tickets)
+}
+
+async function setTickets(user: User, tickets: string) {
   const ticketField = screen.getByLabelText(/number of tickets/i)
   await user.clear(ticketField)
   await user.type(ticketField, tickets)
-  await user.click(screen.getByRole('button', { name: /^book$/i }))
+}
+
+async function fillAndBook(user: User, tickets: string) {
+  await fillDetails(user, tickets)
+  await user.click(bookButton())
+}
+
+async function selectOpenSlot(user: User) {
+  await screen.findByRole('group', { name: /available slots/i })
+  await user.click(screen.getByRole('radio', { name: /of 30 tickets remaining/ }))
 }
 
 describe('BookingPage', () => {
@@ -164,5 +186,94 @@ describe('BookingPage', () => {
     expect(alerts.some((node) => /network request failed/i.test(node.textContent ?? ''))).toBe(true)
     expect(screen.getByLabelText(/name/i)).toHaveValue('Asha')
     expect(screen.getByLabelText(/phone number/i)).toHaveValue('9876543210')
+  })
+})
+
+describe('BookingPage safe submit', () => {
+  it('creates one booking when Book is double-clicked', async () => {
+    const user = userEvent.setup()
+    render(<BookingPage />)
+    await selectOpenSlot(user)
+    await fillDetails(user, '2')
+
+    // Hold the request open so both clicks land while the first one is still in flight.
+    const release = __holdRequests()
+    await user.dblClick(bookButton())
+
+    expect(__getCreateBookingKeys()).toHaveLength(1)
+    expect(__getAllBookings()).toHaveLength(0)
+
+    release()
+    expect(await screen.findByText(/booked 2 tickets/i)).toBeInTheDocument()
+    expect(__getAllBookings()).toHaveLength(1)
+    expect(__getSlotById('open')?.remaining).toBe(8)
+  })
+
+  it('does not start a second request when Book is tapped again while the first is in flight', async () => {
+    const user = userEvent.setup()
+    render(<BookingPage />)
+    await selectOpenSlot(user)
+    await fillDetails(user, '2')
+
+    const release = __holdRequests()
+    const submit = bookButton()
+    await user.click(submit)
+
+    const inFlight = screen.getByRole('button', { name: /booking/i })
+    expect(inFlight).toBeDisabled()
+    await user.click(inFlight)
+
+    expect(__getCreateBookingKeys()).toHaveLength(1)
+    expect(__getAllBookings()).toHaveLength(0)
+
+    release()
+    expect(await screen.findByText(/booked 2 tickets/i)).toBeInTheDocument()
+    expect(__getAllBookings()).toHaveLength(1)
+    expect(__getSlotById('open')?.remaining).toBe(8)
+  })
+
+  it('keeps the form values after a failed booking and retries with the same key', async () => {
+    const user = userEvent.setup()
+    render(<BookingPage />)
+    await selectOpenSlot(user)
+
+    configureMockApi({ failureRate: 1 })
+    await fillAndBook(user, '2')
+
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts.some((node) => /network request failed/i.test(node.textContent ?? ''))).toBe(true)
+    expect(screen.getByLabelText(/name/i)).toHaveValue('Asha')
+    expect(screen.getByLabelText(/phone number/i)).toHaveValue('9876543210')
+    expect(screen.getByLabelText(/number of tickets/i)).toHaveValue(2)
+    expect(__getAllBookings()).toHaveLength(0)
+
+    configureMockApi({ failureRate: 0 })
+    await user.click(bookButton())
+
+    expect(await screen.findByText(/booked 2 tickets/i)).toBeInTheDocument()
+    const keys = __getCreateBookingKeys()
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toBe(keys[1])
+    expect(__getAllBookings()).toHaveLength(1)
+    expect(__getSlotById('open')?.remaining).toBe(8)
+  })
+
+  it('sends a new idempotency key for the next booking once one has succeeded', async () => {
+    const user = userEvent.setup()
+    render(<BookingPage />)
+    await selectOpenSlot(user)
+    await fillAndBook(user, '2')
+    expect(await screen.findByText(/booked 2 tickets/i)).toBeInTheDocument()
+
+    await screen.findByRole('radio', { name: /8 of 30 tickets remaining/ })
+    await selectOpenSlot(user)
+    await fillAndBook(user, '1')
+
+    expect(await screen.findByText(/booked 1 ticket for/i)).toBeInTheDocument()
+    const keys = __getCreateBookingKeys()
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).not.toBe(keys[1])
+    expect(__getAllBookings()).toHaveLength(2)
+    expect(__getSlotById('open')?.remaining).toBe(7)
   })
 })
