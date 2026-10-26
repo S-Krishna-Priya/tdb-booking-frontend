@@ -1,7 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createBooking, getSlots, getTemples } from '../../api/mockApi'
-import { ApiError, type Booking, type Slot, type Temple } from '../../types/booking'
+import {
+  ApiError,
+  type Booking,
+  type BookingDetails,
+  type IdempotencyKey,
+  type Slot,
+  type Temple,
+} from '../../types/booking'
 import { addIstDays, formatIstDateKey, istDateKey } from '../../utils/datetime'
+import { createIdempotencyKey } from '../../utils/idempotency'
 import { BookingForm } from './BookingForm'
 import { SlotList } from './SlotList'
 
@@ -29,6 +37,10 @@ export function BookingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [confirmation, setConfirmation] = useState<Booking | null>(null)
   const [bookingError, setBookingError] = useState<string | null>(null)
+
+  // The key that identifies the current booking attempt to the API. It is kept across retries of
+  // that attempt and renewed once the attempt has succeeded or the devotee moves to another one.
+  const attemptKey = useRef<IdempotencyKey | null>(null)
 
   const dates = nextSevenDays()
   const templeKey = `temples:${templeReload}`
@@ -74,7 +86,13 @@ export function BookingPage() {
     setSlotReload((value) => value + 1)
   }
 
+  /** Starts a new booking attempt, so a genuinely different booking never reuses a key. */
+  function startNewAttempt() {
+    attemptKey.current = null
+  }
+
   function handleSelectSlot(slotId: string) {
+    if (slotId !== selectedSlotId) startNewAttempt()
     setSelectedSlotId(slotId)
     setBookingError(null)
   }
@@ -82,22 +100,32 @@ export function BookingPage() {
   function changeSelection(next: { templeId?: string; date?: string }) {
     if (next.templeId !== undefined) setTempleId(next.templeId)
     if (next.date !== undefined) setDate(next.date)
+    startNewAttempt()
     setSelectedSlotId(null)
     setConfirmation(null)
     setBookingError(null)
   }
 
-  async function book(details: { name: string; phone: string; tickets: number }) {
+  async function book(details: BookingDetails) {
     if (!selectedSlot) return
+
+    // A retry of a failed attempt sends the key the failed request carried, so the API can tell
+    // it apart from a second booking.
+    attemptKey.current ??= createIdempotencyKey()
+    const idempotencyKey = attemptKey.current
+
     setSubmitting(true)
     setBookingError(null)
     setConfirmation(null)
     try {
-      const booking = await createBooking({ slotId: selectedSlot.id, ...details })
+      const booking = await createBooking({ slotId: selectedSlot.id, ...details, idempotencyKey })
       setConfirmation(booking)
       setSelectedSlotId(null)
+      startNewAttempt()
       reloadSlots()
     } catch (error) {
+      // The attempt failed, so the form keeps what the devotee typed and the key is kept too:
+      // retrying with it cannot book twice if the failed request reached the API after all.
       setBookingError(errorMessage(error))
     } finally {
       setSubmitting(false)

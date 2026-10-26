@@ -3,6 +3,7 @@ import {
   type Booking,
   type BookingId,
   type CreateBookingRequest,
+  type IdempotencyKey,
   type Slot,
   type SlotId,
   type Temple,
@@ -57,6 +58,47 @@ let slots: Slot[] = []
 let bookings: Booking[] = []
 let bookingCounter = 0
 
+/**
+ * The bookings this API has already made, keyed by the idempotency key of the request that made
+ * them. A repeat of a key that is already in here is answered with the original booking, so a
+ * retry of a request that reached the API cannot book twice. In a real backend this would be
+ * durable storage with an expiry window; here it lives for the lifetime of the module.
+ */
+const processedKeys = new Map<IdempotencyKey, Booking>()
+
+/** Every idempotency key `createBooking` has been called with, in order. Test seam. */
+let requestedKeys: IdempotencyKey[] = []
+
+/** Set while requests are held open by `__holdRequests`. */
+let heldRequests: { promise: Promise<void>; release: () => void } | null = null
+
+/** Bumped by `resetMockApi`, so a request that was in flight across a reset is abandoned. */
+let generation = 0
+
+/**
+ * Test seam: hold every request that starts from now on, so a test can act while a request is in
+ * flight without depending on the simulated latency. Returns the function that lets them finish.
+ */
+export function __holdRequests(): () => void {
+  releaseHeldRequests()
+  let release = (): void => undefined
+  const promise = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const held = { promise, release }
+  heldRequests = held
+  return () => {
+    if (heldRequests === held) heldRequests = null
+    held.release()
+  }
+}
+
+function releaseHeldRequests(): void {
+  const held = heldRequests
+  heldRequests = null
+  held?.release()
+}
+
 function buildSeed(now: Date): Slot[] {
   const today = istDateKey(now)
   const seeded: Slot[] = []
@@ -99,6 +141,10 @@ export function resetMockApi(now: Date = new Date()): void {
   slots = buildSeed(now)
   bookings = []
   bookingCounter = 0
+  processedKeys.clear()
+  requestedKeys = []
+  generation += 1
+  releaseHeldRequests()
 }
 
 resetMockApi()
@@ -119,6 +165,10 @@ export function __setSlots(next: readonly Slot[]): void {
   slots = next.map((slot) => ({ ...slot }))
 }
 
+export function __getCreateBookingKeys(): readonly IdempotencyKey[] {
+  return requestedKeys
+}
+
 function delay(): Promise<void> {
   const span = Math.max(0, config.maxDelayMs - config.minDelayMs)
   const ms = config.minDelayMs + Math.random() * span
@@ -127,8 +177,13 @@ function delay(): Promise<void> {
 }
 
 async function simulateNetwork(): Promise<void> {
+  const startedIn = generation
+  if (heldRequests) await heldRequests.promise
   await delay()
-  if (config.failureRate > 0 && Math.random() < config.failureRate) {
+  // A request still in flight when the API was reset is abandoned rather than applied to the
+  // fresh state, so one test cannot book into the next one.
+  const abandoned = generation !== startedIn
+  if (abandoned || (config.failureRate > 0 && Math.random() < config.failureRate)) {
     throw new ApiError('network', 'The network request failed. Please try again.')
   }
 }
@@ -152,7 +207,19 @@ export async function getSlots(templeId: string, date: string): Promise<Slot[]> 
 }
 
 export async function createBooking(request: CreateBookingRequest): Promise<Booking> {
+  const key = request.idempotencyKey.trim()
+  requestedKeys.push(key)
+
   await simulateNetwork()
+
+  if (!key) {
+    throw new ApiError('invalid_request', 'A booking request needs an idempotency key.')
+  }
+
+  // A repeat of a key this API has already booked is the same logical booking arriving twice,
+  // so answer it with the booking that was made the first time and change nothing.
+  const alreadyBooked = processedKeys.get(key)
+  if (alreadyBooked) return clone(alreadyBooked)
 
   const slot = slots.find((candidate) => candidate.id === request.slotId)
   if (!slot) throw new ApiError('slot_not_found', 'That slot no longer exists.')
@@ -195,6 +262,7 @@ export async function createBooking(request: CreateBookingRequest): Promise<Book
   }
 
   bookings.push(booking)
+  processedKeys.set(key, booking)
   return clone(booking)
 }
 

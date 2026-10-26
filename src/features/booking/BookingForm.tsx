@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import type { CreateBookingRequest, Slot } from '../../types/booking'
+import type { BookingDetails, Slot } from '../../types/booking'
 import { validateBooking, type BookingFormErrors } from './validation'
 
 interface BookingFormProps {
   slot: Slot | null
   submitting: boolean
-  onSubmit: (request: Omit<CreateBookingRequest, 'slotId'>) => void
+  onSubmit: (details: BookingDetails) => void
 }
 
 const FIELD_CLASS =
