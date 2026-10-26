@@ -47,8 +47,11 @@ None of the above are implemented yet.
 
 ## Prerequisites
 
-- **Node.js** 20.19+ or 22.12+ (developed on Node 24) — <https://nodejs.org>
-- **npm** 10+ (ships with Node)
+- **Node.js** 24.15+ — developed and verified on **24.22.1 (LTS)**. Node 22.22.2+
+  or 26+ also work; the toolchain (jsdom 30) requires
+  `^22.22.2 || ^24.15.0 || >=26.0.0`, so older Node versions install with
+  `EBADENGINE` warnings. <https://nodejs.org>
+- **npm** 11+ (ships with Node) — verified on 11.19.1
 - **Git** — <https://git-scm.com>
 
 Check your versions:
