@@ -5,7 +5,9 @@ import { addIstDays, formatIstDateKey, istDateKey } from '../../utils/datetime'
 import { BookingForm } from './BookingForm'
 import { SlotList } from './SlotList'
 
-type Loaded<T> = { key: string; ok: true; data: T } | { key: string; ok: false; message: string }
+type Loaded<T> =
+  | { key: string; ok: true; data: T; at: Date }
+  | { key: string; ok: false; message: string }
 
 function errorMessage(error: unknown): string {
   return error instanceof ApiError || error instanceof Error
@@ -39,7 +41,7 @@ export function BookingPage() {
     getTemples()
       .then((data) => {
         if (!active) return
-        setTemples({ key: templeKey, ok: true, data })
+        setTemples({ key: templeKey, ok: true, data, at: new Date() })
         setTempleId((current) => current || (data[0]?.id ?? ''))
       })
       .catch((error: unknown) => {
@@ -55,7 +57,7 @@ export function BookingPage() {
     let active = true
     getSlots(templeId, date)
       .then((data) => {
-        if (active) setSlots({ key: slotKey, ok: true, data })
+        if (active) setSlots({ key: slotKey, ok: true, data, at: new Date() })
       })
       .catch((error: unknown) => {
         if (active) setSlots({ key: slotKey, ok: false, message: errorMessage(error) })
@@ -67,7 +69,8 @@ export function BookingPage() {
 
   const templesLoading = temples === null || temples.key !== templeKey
   const slotsLoading = !templeId || slots === null || slots.key !== slotKey
-  const slotData = !slotsLoading && slots.ok ? slots.data : null
+  const loadedSlots = !slotsLoading && slots.ok ? slots : null
+  const slotData = loadedSlots?.data ?? null
   const selectedSlot = slotData?.find((slot) => slot.id === selectedSlotId) ?? null
 
   function reloadSlots() {
@@ -195,6 +198,7 @@ export function BookingPage() {
             slots={slotData}
             selectedSlotId={selectedSlotId}
             onSelect={handleSelectSlot}
+            now={loadedSlots?.at ?? new Date()}
           />
           <BookingForm
             slot={selectedSlot}
