@@ -13,6 +13,7 @@ import { ApiError } from '../types/booking'
 import { addIstDays, hasStarted, istDateKey } from '../utils/datetime'
 
 const TODAY = istDateKey(new Date())
+const TOMORROW = addIstDays(TODAY, 1)
 
 function deterministic() {
   resetMockApi()
@@ -63,7 +64,7 @@ describe('createBooking', () => {
   beforeEach(deterministic)
 
   async function firstBookableSlot() {
-    const slots = await getSlots('guruvayur', TODAY)
+    const slots = await getSlots('guruvayur', TOMORROW)
     const slot = slots.find((candidate) => candidate.remaining > 0 && !hasStarted(candidate.startsAt))
     if (!slot) throw new Error('no bookable slot in seed')
     return slot
@@ -102,8 +103,7 @@ describe('createBooking', () => {
   })
 
   it('rejects booking a full slot', async () => {
-    const tomorrow = addIstDays(TODAY, 1)
-    const slots = await getSlots('sabarimala', tomorrow)
+    const slots = await getSlots('sabarimala', TOMORROW)
     const full = slots.find((slot) => slot.remaining === 0 && !hasStarted(slot.startsAt))
     if (!full) throw new Error('no full future slot in seed')
 
@@ -134,7 +134,7 @@ describe('getBookings and cancelBooking', () => {
   beforeEach(deterministic)
 
   it('returns only the bookings for the given phone number', async () => {
-    const slots = await getSlots('guruvayur', TODAY)
+    const slots = await getSlots('guruvayur', TOMORROW)
     const slot = slots.find((candidate) => candidate.remaining > 2 && !hasStarted(candidate.startsAt))
     if (!slot) throw new Error('no bookable slot')
 
@@ -147,7 +147,7 @@ describe('getBookings and cancelBooking', () => {
   })
 
   it('releases the tickets back to the slot when a booking is cancelled', async () => {
-    const slots = await getSlots('guruvayur', TODAY)
+    const slots = await getSlots('guruvayur', TOMORROW)
     const slot = slots.find((candidate) => candidate.remaining > 2 && !hasStarted(candidate.startsAt))
     if (!slot) throw new Error('no bookable slot')
     const before = __getSlotById(slot.id)?.remaining ?? 0

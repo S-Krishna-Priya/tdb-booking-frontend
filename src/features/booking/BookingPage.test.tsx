@@ -10,7 +10,7 @@ import {
   resetMockApi,
 } from '../../api/mockApi'
 import type { Slot } from '../../types/booking'
-import { istDateKey, istSlotInstant } from '../../utils/datetime'
+import { istDateKey } from '../../utils/datetime'
 
 const TODAY = istDateKey(new Date())
 const TEMPLE = 'sabarimala'
@@ -19,26 +19,31 @@ function slot(partial: Partial<Slot> & { id: string }): Slot {
   return {
     templeId: TEMPLE,
     date: TODAY,
-    startsAt: istSlotInstant(TODAY, 23),
+    startsAt: fromNow(3),
     capacity: 30,
     remaining: 10,
     ...partial,
   }
 }
 
-const OPEN = slot({ id: 'open', startsAt: istSlotInstant(TODAY, 23), remaining: 10 })
-const FULL = slot({ id: 'full', startsAt: istSlotInstant(TODAY, 22), capacity: 20, remaining: 0 })
-const STARTED = slot({
-  id: 'started',
-  startsAt: new Date(Date.now() - 3600_000).toISOString(),
-  capacity: 25,
-  remaining: 8,
-})
+const HOUR = 3600_000
+
+function fromNow(hours: number): string {
+  return new Date(Date.now() + hours * HOUR).toISOString()
+}
+
+const OPEN = slot({ id: 'open', startsAt: fromNow(3), remaining: 10 })
+const FULL = slot({ id: 'full', startsAt: fromNow(2), capacity: 20, remaining: 0 })
+const STARTED = slot({ id: 'started', startsAt: fromNow(-1), capacity: 25, remaining: 8 })
 
 beforeEach(() => {
   resetMockApi()
   configureMockApi({ failureRate: 0, minDelayMs: 0, maxDelayMs: 0 })
-  __setSlots([OPEN, FULL, STARTED])
+  __setSlots([
+    { ...OPEN, startsAt: fromNow(3) },
+    { ...FULL, startsAt: fromNow(2) },
+    { ...STARTED, startsAt: fromNow(-1) },
+  ])
 })
 
 async function fillAndBook(user: ReturnType<typeof userEvent.setup>, tickets: string) {
