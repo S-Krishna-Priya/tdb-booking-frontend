@@ -20,7 +20,7 @@ export type BookingLookupState =
 
 export interface BookingLookup {
   state: BookingLookupState
-  cancelError: string | null
+  cancelErrors: Readonly<Record<BookingId, string>>
   startLookup: (phone: string) => void
   cancel: (bookingId: BookingId) => void
 }
@@ -39,7 +39,9 @@ function toState(lookup: Lookup | null, result: LookupResult | null, key: string
 export function useBookingLookup(): BookingLookup {
   const [lookup, setLookup] = useState<Lookup | null>(null)
   const [result, setResult] = useState<LookupResult | null>(null)
-  const [cancelError, setCancelError] = useState<string | null>(null)
+  // Scoped per booking: one shared slot let a second cancellation wipe the explanation for a
+  // first one that had already rolled back, leaving the row restored with nothing saying why.
+  const [cancelErrors, setCancelErrors] = useState<Readonly<Record<BookingId, string>>>({})
   const [pendingIds, setPendingIds] = useState<readonly BookingId[]>([])
   const attempts = useRef(0)
   const mounted = useRef(true)
@@ -70,7 +72,7 @@ export function useBookingLookup(): BookingLookup {
 
   const startLookup = useCallback((phone: string) => {
     attempts.current += 1
-    setCancelError(null)
+    setCancelErrors({})
     setLookup({ phone, attempt: attempts.current })
   }, [])
 
@@ -83,7 +85,12 @@ export function useBookingLookup(): BookingLookup {
       const target = previous.bookings.find((booking) => booking.id === bookingId)
       if (target === undefined || target.status !== 'confirmed') return
 
-      setCancelError(null)
+      setCancelErrors((errors) => {
+        if (!(bookingId in errors)) return errors
+        const next = { ...errors }
+        delete next[bookingId]
+        return next
+      })
       setPendingIds((ids) => [...ids, bookingId])
 
       // Optimistic: the devotee sees "Cancelled" before the request is sent.
@@ -120,7 +127,7 @@ export function useBookingLookup(): BookingLookup {
               ),
             }
           })
-          setCancelError(errorMessage(error))
+          setCancelErrors((errors) => ({ ...errors, [bookingId]: errorMessage(error) }))
         })
         .finally(() => {
           if (!mounted.current) return
@@ -130,5 +137,5 @@ export function useBookingLookup(): BookingLookup {
     [result, pendingIds],
   )
 
-  return { state: toState(lookup, result, key), cancelError, startLookup, cancel }
+  return { state: toState(lookup, result, key), cancelErrors, startLookup, cancel }
 }
