@@ -1,3 +1,5 @@
+import { useLanguage } from '../../i18n/context'
+import type { BookingMessages } from '../../i18n/translations'
 import type { Slot } from '../../types/booking'
 import { formatIstTime, hasStarted } from '../../utils/datetime'
 
@@ -8,19 +10,23 @@ interface SlotListProps {
   now: Date
 }
 
-function unavailableReason(slot: Slot, now: Date): string | null {
-  if (hasStarted(slot.startsAt, now)) return 'Already started'
-  if (slot.remaining <= 0) return 'Full'
+function unavailableReason(slot: Slot, now: Date, t: BookingMessages): string | null {
+  if (hasStarted(slot.startsAt, now)) return t.slotStarted
+  if (slot.remaining <= 0) return t.slotFull
   return null
 }
 
 export function SlotList({ slots, selectedSlotId, onSelect, now }: SlotListProps) {
+  const { t, locale } = useLanguage()
+
   return (
     <fieldset className="mt-6 border-0 p-0">
-      <legend className="text-base font-semibold text-slate-900">Available slots</legend>
+      <legend className="text-base font-semibold text-slate-900">
+        {t.booking.availableSlots}
+      </legend>
       <ul className="mt-3 space-y-2">
         {slots.map((slot) => {
-          const reason = unavailableReason(slot, now)
+          const reason = unavailableReason(slot, now, t.booking)
           const disabled = reason !== null
           const inputId = `slot-${slot.id}`
           const describedBy = disabled ? `${inputId}-reason` : undefined
@@ -46,9 +52,9 @@ export function SlotList({ slots, selectedSlotId, onSelect, now }: SlotListProps
                   aria-describedby={describedBy}
                   className="h-4 w-4 accent-amber-600 focus-visible:ring-2 focus-visible:ring-amber-500"
                 />
-                <span className="font-medium">{formatIstTime(slot.startsAt)}</span>
+                <span className="font-medium">{formatIstTime(slot.startsAt, locale)}</span>
                 <span className="text-sm">
-                  {slot.remaining} of {slot.capacity} tickets remaining
+                  {t.booking.ticketsRemaining(slot.remaining, slot.capacity)}
                 </span>
                 {reason ? (
                   <span
