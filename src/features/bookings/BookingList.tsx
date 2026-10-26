@@ -1,3 +1,4 @@
+import { useLanguage } from '../../i18n/context'
 import type { Booking, BookingId } from '../../types/booking'
 import { formatIstDateKey, formatIstTime } from '../../utils/datetime'
 import { cancelAvailability, statusLabel } from './cancellation'
@@ -24,14 +25,16 @@ export function BookingList({
   onDismissConfirm,
   onConfirmCancel,
 }: BookingListProps) {
+  const { t, locale } = useLanguage()
+
   return (
     <ul className="mt-4 space-y-4">
       {bookings.map((booking) => {
-        const availability = cancelAvailability(booking, now)
+        const availability = cancelAvailability(booking, now, t.bookings)
         const titleId = `booking-${booking.id}-temple`
         const promptId = `booking-${booking.id}-prompt`
-        const date = formatIstDateKey(booking.date)
-        const time = formatIstTime(booking.startsAt)
+        const date = formatIstDateKey(booking.date, locale)
+        const time = formatIstTime(booking.startsAt, locale)
 
         return (
           <li key={booking.id}>
@@ -45,20 +48,24 @@ export function BookingList({
 
               <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-4">
                 <div>
-                  <dt className="text-slate-600">Date</dt>
+                  <dt className="text-slate-600">{t.bookings.date}</dt>
                   <dd className="font-medium text-slate-900">{date}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-600">Start time</dt>
-                  <dd className="font-medium text-slate-900">{time} IST</dd>
+                  <dt className="text-slate-600">{t.bookings.startTime}</dt>
+                  <dd className="font-medium text-slate-900">
+                    {time} {t.bookings.timeZoneSuffix}
+                  </dd>
                 </div>
                 <div>
-                  <dt className="text-slate-600">Tickets</dt>
+                  <dt className="text-slate-600">{t.bookings.tickets}</dt>
                   <dd className="font-medium text-slate-900">{booking.tickets}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-600">Status</dt>
-                  <dd className="font-medium text-slate-900">{statusLabel(booking.status)}</dd>
+                  <dt className="text-slate-600">{t.bookings.status}</dt>
+                  <dd className="font-medium text-slate-900">
+                    {statusLabel(booking.status, t.bookings)}
+                  </dd>
                 </div>
               </dl>
 
@@ -83,10 +90,10 @@ export function BookingList({
                   onClick={() => {
                     onRequestConfirm(booking.id)
                   }}
-                  aria-label={`Cancel booking for ${booking.templeName}`}
+                  aria-label={t.bookings.cancelFor(booking.templeName)}
                   className={`${BUTTON_CLASS} mt-3 border border-red-300 text-red-800 hover:bg-red-50`}
                 >
-                  Cancel booking
+                  {t.bookings.cancel}
                 </button>
               ) : null}
 
@@ -97,8 +104,7 @@ export function BookingList({
                   className="mt-3 rounded-md border border-red-200 bg-red-50 p-3"
                 >
                   <p id={promptId} className="text-sm text-red-900">
-                    Cancel {booking.tickets} ticket{booking.tickets === 1 ? '' : 's'} for{' '}
-                    {booking.templeName} on {date} at {time} IST? This cannot be undone.
+                    {t.bookings.confirmPrompt(booking.tickets, booking.templeName, date, time)}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
@@ -108,14 +114,14 @@ export function BookingList({
                       }}
                       className={`${BUTTON_CLASS} bg-red-700 text-white hover:bg-red-800`}
                     >
-                      Yes, cancel booking
+                      {t.bookings.confirmCancel}
                     </button>
                     <button
                       type="button"
                       onClick={onDismissConfirm}
                       className={`${BUTTON_CLASS} border border-slate-300 text-slate-800 hover:bg-white`}
                     >
-                      Keep booking
+                      {t.bookings.keepBooking}
                     </button>
                   </div>
                 </div>

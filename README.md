@@ -3,8 +3,7 @@
 A React + TypeScript frontend for booking temple darshan time slots: browse slot
 availability, reserve a slot, and manage existing bookings.
 
-> **Status:** P1 to P4 are implemented and merged. P5 follows on its own branch
-> and pull request.
+> **Status:** all five problems (P1–P5) are implemented, reviewed and merged.
 
 ---
 
@@ -147,6 +146,16 @@ tdb-booking-frontend/
 
 ---
 
+## Language
+
+The interface is available in **English** and **Malayalam**. The switch is in the page header, and
+the choice is remembered in `localStorage` under `tdb.language`, so a refresh keeps it. Dates and
+times follow the chosen language (`en-IN` / `ml-IN`) while remaining in **Indian Standard Time**
+whatever timezone the device is in.
+
+Temple names and error text raised by the mock API are returned as data and are shown exactly as
+received, rather than translated.
+
 ## Mock API
 
 This application uses a **mock API** and does **not** require a real backend.
@@ -234,7 +243,7 @@ Steps a reviewer can follow to verify this change.
 - [x] **P2** — Shareable filters and race-safe slot loading
 - [x] **P3** — Prevent duplicate bookings and support safe retries
 - [x] **P4** — My bookings, cancellation and IST display
-- [ ] **P5** — Accessibility and Malayalam localization
+- [x] **P5** — Keyboard accessibility and Malayalam localization
 
 ---
 
@@ -248,4 +257,5 @@ Links are added here as each problem is submitted.
 | P2 — Shareable filters and race-safe slot loading | [#7](https://github.com/S-Krishna-Priya/tdb-booking-frontend/pull/7) | Merged |
 | P3 — Prevent duplicate bookings and support safe retries | [#8](https://github.com/S-Krishna-Priya/tdb-booking-frontend/pull/8) | Merged |
 | P4 — My bookings, cancellation and IST display | [#9](https://github.com/S-Krishna-Priya/tdb-booking-frontend/pull/9) | Merged |
-| P5 — Accessibility and Malayalam localization | _not submitted yet_ | Not started |
+| P5 — Keyboard accessibility and Malayalam localization | [#11](https://github.com/S-Krishna-Priya/tdb-booking-frontend/pull/11) | Merged |
+| Follow-up fix — booking state leaking between selections | [#10](https://github.com/S-Krishna-Priya/tdb-booking-frontend/pull/10) | Merged |

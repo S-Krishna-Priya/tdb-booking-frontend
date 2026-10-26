@@ -1,3 +1,4 @@
+import type { BookingsMessages } from '../../i18n/translations'
 import type { Booking, BookingStatus } from '../../types/booking'
 import { hasStarted } from '../../utils/datetime'
 
@@ -12,20 +13,23 @@ export type CancelAvailability =
   | { kind: 'blocked'; reason: string }
   | { kind: 'none' }
 
-const SLOT_STARTED_REASON =
-  'This slot has already started, so this booking can no longer be cancelled.'
-
 /**
  * `startsAt` is an absolute instant, so the comparison is timezone independent:
  * only the display is pinned to IST. `now` is injected so the decision is
- * deterministic in tests.
+ * deterministic in tests, and `messages` so the reason reads in the chosen language.
  */
-export function cancelAvailability(booking: Booking, now: Date): CancelAvailability {
+export function cancelAvailability(
+  booking: Booking,
+  now: Date,
+  messages: BookingsMessages,
+): CancelAvailability {
   if (booking.status === 'cancelled') return { kind: 'none' }
-  if (hasStarted(booking.startsAt, now)) return { kind: 'blocked', reason: SLOT_STARTED_REASON }
+  if (hasStarted(booking.startsAt, now)) {
+    return { kind: 'blocked', reason: messages.startedReason }
+  }
   return { kind: 'available' }
 }
 
-export function statusLabel(status: BookingStatus): string {
-  return status === 'cancelled' ? 'Cancelled' : 'Confirmed'
+export function statusLabel(status: BookingStatus, messages: BookingsMessages): string {
+  return status === 'cancelled' ? messages.cancelled : messages.confirmed
 }

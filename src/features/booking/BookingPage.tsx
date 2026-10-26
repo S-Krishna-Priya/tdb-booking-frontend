@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createBooking, getTemples } from '../../api/mockApi'
 import { useSlots } from '../../hooks/useSlots'
 import { useUrlSelection } from '../../hooks/useUrlSelection'
+import { useLanguage } from '../../i18n/context'
 import type {
   Booking,
   BookingDetails,
+  BookingId,
   IdempotencyKey,
   Temple,
 } from '../../types/booking'
@@ -40,6 +42,7 @@ function selectionKeyOf(selection: Selection): string {
 }
 
 export function BookingPage() {
+  const { t, locale } = useLanguage()
   const todayKey = istDateKey(new Date())
   const dates = useMemo(() => bookingDatesFrom(todayKey), [todayKey])
   const { selection, select, adoptKnownTemple } = useUrlSelection(dates)
@@ -55,6 +58,10 @@ export function BookingPage() {
   const attemptKey = useRef<{ selectionKey: string; slotId: string; value: IdempotencyKey } | null>(
     null,
   )
+
+  // Where focus goes when a booking succeeds, and which booking it has already been moved for.
+  const confirmationRef = useRef<HTMLParagraphElement>(null)
+  const focusedBookingId = useRef<BookingId | null>(null)
 
   const templeKey = `temples:${templeReload}`
   const selectionKey = selectionKeyOf(selection)
@@ -76,6 +83,21 @@ export function BookingPage() {
       active = false
     }
   }, [templeKey, adoptKnownTemple])
+
+  /**
+   * A booking that has just succeeded takes focus, so the devotee lands on the result instead of
+   * being left where the Book button used to be. Focusing the message also makes a screen reader
+   * read it, which is the belt to the live region's braces.
+   */
+  useEffect(() => {
+    if (confirmation === null) {
+      focusedBookingId.current = null
+      return
+    }
+    if (focusedBookingId.current === confirmation.id) return
+    focusedBookingId.current = confirmation.id
+    confirmationRef.current?.focus()
+  }, [confirmation])
 
   const { state: slots, reload: reloadSlots } = useSlots(selection.templeId, selection.date)
 
@@ -146,12 +168,12 @@ export function BookingPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Temple Darshan Booking</h1>
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t.booking.title}</h1>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="temple" className="text-sm font-medium text-slate-700">
-            Temple
+            {t.booking.temple}
           </label>
           <select
             id="temple"
@@ -167,14 +189,14 @@ export function BookingPage() {
                 </option>
               ))
             ) : (
-              <option value={selection.templeId}>Loading temples…</option>
+              <option value={selection.templeId}>{t.booking.loadingTemples}</option>
             )}
           </select>
         </div>
 
         <div>
           <label htmlFor="date" className="text-sm font-medium text-slate-700">
-            Date
+            {t.booking.date}
           </label>
           <select
             id="date"
@@ -184,7 +206,7 @@ export function BookingPage() {
           >
             {dates.map((value) => (
               <option key={value} value={value}>
-                {formatIstDateKey(value)}
+                {formatIstDateKey(value, locale)}
               </option>
             ))}
           </select>
@@ -199,14 +221,22 @@ export function BookingPage() {
             onClick={() => setTempleReload((value) => value + 1)}
             className="mt-2 rounded border border-red-300 px-3 py-1 text-sm font-medium text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
           >
-            Retry
+            {t.booking.retryTemples}
           </button>
         </div>
       ) : null}
 
+      {/*
+        Announced while slots load, but NOT while a booking confirmation is on screen. The reload
+        that follows a successful booking would otherwise put this alongside the confirmation, and
+        two polite regions competing is how the booking result gets buried.
+      */}
       {slots.status === 'loading' ? (
-        <p role="status" className="mt-6 text-sm text-slate-600">
-          Loading slots…
+        <p
+          {...(confirmation ? {} : { role: 'status' })}
+          className="mt-6 text-sm text-slate-600"
+        >
+          {t.booking.loadingSlots}
         </p>
       ) : null}
 
@@ -218,14 +248,14 @@ export function BookingPage() {
             onClick={reloadSlots}
             className="mt-2 rounded border border-red-300 px-3 py-1 text-sm font-medium text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
           >
-            Retry
+            {t.booking.retrySlots}
           </button>
         </div>
       ) : null}
 
       {slotData && slotData.length === 0 ? (
         <p className="mt-6 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-          No slots are available for this temple on this date.
+          {t.booking.noSlots}
         </p>
       ) : null}
 
@@ -245,14 +275,20 @@ export function BookingPage() {
         </>
       ) : null}
 
-      <div aria-live="polite" className="mt-6">
+      {/*
+        The live region is mounted for the whole life of the page, empty until there is something
+        to say. A region that appears at the same moment as its content is announced unreliably,
+        so the container never leaves the DOM; only the message inside it comes and goes.
+      */}
+      <div aria-live="polite" aria-atomic="true" className="mt-6">
         {confirmation ? (
           <p
+            ref={confirmationRef}
+            tabIndex={-1}
             role="status"
-            className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900"
+            className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700"
           >
-            Booked {confirmation.tickets} ticket{confirmation.tickets === 1 ? '' : 's'} for{' '}
-            {confirmation.templeName}. Booking reference {confirmation.id}.
+            {t.booking.confirmation(confirmation.tickets, confirmation.templeName, confirmation.id)}
           </p>
         ) : null}
       </div>
