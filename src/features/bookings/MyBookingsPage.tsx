@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react'
+import { useLanguage } from '../../i18n/context'
 import type { BookingId } from '../../types/booking'
 import { BookingList } from './BookingList'
 import { validatePhone } from './validation'
 import { useBookingLookup } from './useBookingLookup'
 
 export function MyBookingsPage() {
+  const { t } = useLanguage()
   const [phone, setPhone] = useState('')
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<BookingId | null>(null)
@@ -15,7 +17,7 @@ export function MyBookingsPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (loading) return
-    const error = validatePhone(phone)
+    const error = validatePhone(phone, t.validation)
     setPhoneError(error)
     if (error !== null) return
     setConfirmingId(null)
@@ -29,15 +31,13 @@ export function MyBookingsPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">My bookings</h1>
-      <p className="mt-2 text-sm text-slate-600">
-        Enter the phone number you booked with. All times are shown in Indian Standard Time.
-      </p>
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t.bookings.title}</h1>
+      <p className="mt-2 text-sm text-slate-600">{t.bookings.intro}</p>
 
       <form onSubmit={handleSubmit} noValidate className="mt-6 sm:flex sm:items-end sm:gap-3">
         <div className="sm:flex-1">
           <label htmlFor="lookup-phone" className="text-sm font-medium text-slate-700">
-            Phone number
+            {t.bookings.phone}
           </label>
           <input
             id="lookup-phone"
@@ -57,7 +57,7 @@ export function MyBookingsPage() {
           disabled={loading}
           className="mt-3 w-full rounded-md bg-amber-600 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 sm:mt-0 sm:w-auto"
         >
-          {loading ? 'Finding…' : 'Find my bookings'}
+          {loading ? t.bookings.finding : t.bookings.find}
         </button>
       </form>
 
@@ -68,14 +68,12 @@ export function MyBookingsPage() {
       ) : null}
 
       {state.status === 'idle' ? (
-        <p className="mt-6 text-sm text-slate-700">
-          Your bookings will appear here once you look them up.
-        </p>
+        <p className="mt-6 text-sm text-slate-700">{t.bookings.idle}</p>
       ) : null}
 
       {loading ? (
         <p role="status" className="mt-6 text-sm text-slate-600">
-          Looking up your bookings…
+          {t.bookings.loading}
         </p>
       ) : null}
 
@@ -89,7 +87,7 @@ export function MyBookingsPage() {
             }}
             className="mt-2 rounded border border-red-300 px-3 py-1 text-sm font-medium text-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
           >
-            Retry
+            {t.bookings.retry}
           </button>
         </div>
       ) : null}
@@ -105,13 +103,15 @@ export function MyBookingsPage() {
 
       {state.status === 'success' && state.bookings.length === 0 ? (
         <p className="mt-6 rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-700">
-          No bookings found for {state.phone}.
+          {t.bookings.empty(state.phone)}
         </p>
       ) : null}
 
       {state.status === 'success' && state.bookings.length > 0 ? (
         <section className="mt-6">
-          <h2 className="text-base font-semibold text-slate-900">Bookings for {state.phone}</h2>
+          <h2 className="text-base font-semibold text-slate-900">
+            {t.bookings.heading(state.phone)}
+          </h2>
           <BookingList
             bookings={state.bookings}
             now={new Date()}
