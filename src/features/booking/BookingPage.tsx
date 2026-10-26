@@ -3,7 +3,7 @@ import { createBooking, getTemples } from '../../api/mockApi'
 import { useSlots } from '../../hooks/useSlots'
 import { useUrlSelection } from '../../hooks/useUrlSelection'
 import type { Booking, Temple } from '../../types/booking'
-import { formatIstDateKey } from '../../utils/datetime'
+import { formatIstDateKey, istDateKey } from '../../utils/datetime'
 import { errorMessage } from '../../utils/errors'
 import { bookingDates, type Selection } from '../../utils/selection'
 import { BookingForm } from './BookingForm'
@@ -34,7 +34,8 @@ function selectionKeyOf(selection: Selection): string {
 }
 
 export function BookingPage() {
-  const dates = useMemo(() => bookingDates(), [])
+  const todayKey = istDateKey(new Date())
+  const dates = useMemo(() => bookingDates(), [todayKey])
   const { selection, select, adoptKnownTemple } = useUrlSelection(dates)
   const [temples, setTemples] = useState<Loaded<Temple[]> | null>(null)
   const [templeReload, setTempleReload] = useState(0)

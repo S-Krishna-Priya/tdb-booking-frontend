@@ -9,8 +9,15 @@ import { BookingPage } from './BookingPage'
 const TODAY = istDateKey(new Date())
 const TOMORROW = addIstDays(TODAY, 1)
 
+// A fixture must not depend on the hour the suite runs. An absolute 23:00 IST start reads as
+// "already started" after 23:00 and disables the radio these tests click, so today's fixtures are
+// expressed relative to the run instant instead.
 function slot(id: string, templeId: string, date: string, capacity: number, remaining: number) {
-  return { id, templeId, date, startsAt: istSlotInstant(date, 23), capacity, remaining }
+  const startsAt =
+    date === TODAY
+      ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+      : istSlotInstant(date, 23)
+  return { id, templeId, date, startsAt, capacity, remaining }
 }
 
 // Each slot's "<remaining> of <capacity> tickets remaining" is unique, so the accessible name of
