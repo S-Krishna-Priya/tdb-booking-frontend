@@ -80,6 +80,45 @@ describe('work belonging to one selection never leaks into another', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('still makes the booking when it succeeds after the devotee has moved on', async () => {
+    const user = userEvent.setup()
+    const booking = deferred<Booking>()
+    const create = vi.spyOn(mockApi, 'createBooking').mockReturnValue(booking.promise)
+
+    render(<BookingPage />)
+    await screen.findByRole('radio', { name: /10 of 30 tickets remaining/ })
+
+    await user.click(screen.getByRole('radio', { name: /10 of 30 tickets remaining/ }))
+    await user.type(screen.getByLabelText(/name/i), 'Asha')
+    await user.type(screen.getByLabelText(/phone number/i), '9876543210')
+    await user.click(screen.getByRole('button', { name: /^book$/i }))
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /^date$/i }), TOMORROW)
+    await screen.findByRole('radio', { name: /6 of 50 tickets remaining/ })
+
+    await act(async () => {
+      booking.resolve({
+        id: 'bkg-late',
+        slotId: SABARIMALA_TODAY.id,
+        templeId: 'sabarimala',
+        templeName: 'Sabarimala Sree Dharmasastha Temple',
+        startsAt: SABARIMALA_TODAY.startsAt,
+        date: TODAY,
+        name: 'Asha',
+        phone: '9876543210',
+        tickets: 1,
+        status: 'confirmed',
+        createdAt: new Date().toISOString(),
+      })
+      await Promise.resolve()
+    })
+
+    // Deliberate: the confirmation belongs to a selection the devotee has left, so it is not
+    // shown here. The booking itself was still made, and is reachable under My bookings.
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText(/booked \d+ ticket/i)).not.toBeInTheDocument()
+  })
+
   it('shows loading, not the old error, when returning to a selection that failed earlier', async () => {
     const requests = new Map<string, Deferred<Slot[]>>()
     vi.spyOn(mockApi, 'getSlots').mockImplementation((templeId: string, date: string) => {
