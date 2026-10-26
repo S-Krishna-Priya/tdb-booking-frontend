@@ -8,7 +8,7 @@ export function MyBookingsPage() {
   const [phone, setPhone] = useState('')
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<BookingId | null>(null)
-  const { state, cancelError, startLookup, cancel } = useBookingLookup()
+  const { state, cancelErrors, startLookup, cancel } = useBookingLookup()
 
   const loading = state.status === 'loading'
 
@@ -94,15 +94,6 @@ export function MyBookingsPage() {
         </div>
       ) : null}
 
-      {cancelError ? (
-        <p
-          role="alert"
-          className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800"
-        >
-          {cancelError}
-        </p>
-      ) : null}
-
       {state.status === 'success' && state.bookings.length === 0 ? (
         <p className="mt-6 rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-700">
           No bookings found for {state.phone}.
@@ -114,6 +105,7 @@ export function MyBookingsPage() {
           <h2 className="text-base font-semibold text-slate-900">Bookings for {state.phone}</h2>
           <BookingList
             bookings={state.bookings}
+            cancelErrors={cancelErrors}
             now={new Date()}
             confirmingId={confirmingId}
             onRequestConfirm={setConfirmingId}

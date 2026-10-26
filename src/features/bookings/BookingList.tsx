@@ -4,6 +4,7 @@ import { cancelAvailability, statusLabel } from './cancellation'
 
 interface BookingListProps {
   bookings: readonly Booking[]
+  cancelErrors: Readonly<Record<BookingId, string>>
   now: Date
   confirmingId: BookingId | null
   onRequestConfirm: (bookingId: BookingId) => void
@@ -16,6 +17,7 @@ const BUTTON_CLASS =
 
 export function BookingList({
   bookings,
+  cancelErrors,
   now,
   confirmingId,
   onRequestConfirm,
@@ -59,6 +61,15 @@ export function BookingList({
                   <dd className="font-medium text-slate-900">{statusLabel(booking.status)}</dd>
                 </div>
               </dl>
+
+              {cancelErrors[booking.id] !== undefined ? (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+                >
+                  {cancelErrors[booking.id]}
+                </p>
+              ) : null}
 
               {availability.kind === 'blocked' ? (
                 <p className="mt-3 rounded-md bg-slate-100 p-3 text-sm text-slate-700">

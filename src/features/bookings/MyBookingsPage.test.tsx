@@ -259,6 +259,38 @@ describe('MyBookingsPage', () => {
     expect(within(other).getByText('Confirmed')).toBeInTheDocument()
   })
 
+  it('keeps a failed cancellation explained when another cancellation starts', async () => {
+    // Both slots must still be ahead of the clock for both bookings to be cancellable; the
+    // default pinned time sits after the 11:00 slot, so move to 09:30 IST for this one case.
+    vi.setSystemTime(new Date('2026-03-10T04:00:00.000Z'))
+
+    const user = userEvent.setup()
+    const failing = deferred<Booking>()
+    const neverSettles = deferred<Booking>()
+    vi.spyOn(api, 'cancelBooking').mockImplementation((bookingId) =>
+      bookingId === EVENING_BOOKING ? failing.promise : neverSettles.promise,
+    )
+    render(<MyBookingsPage />)
+
+    await lookUp(user, PHONE)
+    const sabarimala = await screen.findByRole('article', { name: /sabarimala/i })
+    const guruvayur = screen.getByRole('article', { name: /guruvayur/i })
+
+    await confirmCancel(user, sabarimala)
+    failing.reject(new ApiError('network', 'The network request failed. Please try again.'))
+
+    expect(await within(sabarimala).findByRole('alert')).toHaveTextContent(
+      /network request failed/i,
+    )
+    expect(within(sabarimala).getByText('Confirmed')).toBeInTheDocument()
+
+    // Starting a second cancellation must not wipe the explanation for the first one.
+    await confirmCancel(user, guruvayur)
+
+    expect(within(sabarimala).getByRole('alert')).toHaveTextContent(/network request failed/i)
+    expect(within(guruvayur).queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('leaves the booking confirmed when the real cancellation request is rejected', async () => {
     const user = userEvent.setup()
     render(<MyBookingsPage />)
