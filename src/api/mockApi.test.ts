@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   __getAllBookings,
   __getSlotById,
@@ -11,10 +11,18 @@ import {
   resetMockApi,
 } from './mockApi'
 import { ApiError, type Booking } from '../types/booking'
-import { addIstDays, hasStarted, istDateKey } from '../utils/datetime'
+import { addIstDays, hasStarted, istDateKey, istSlotInstant } from '../utils/datetime'
 
+// This suite runs with the clock pinned to 22:30 IST — deliberately the most hostile hour, when
+// every slot seeded for today has already started. Pinning it means a helper that searches TODAY
+// for a bookable slot fails here and now, rather than passing all morning and breaking at night.
 const TODAY = istDateKey(new Date())
 const TOMORROW = addIstDays(TODAY, 1)
+const PINNED_NOW = new Date(istSlotInstant(TODAY, 22, 30))
+
+afterAll(() => {
+  vi.useRealTimers()
+})
 
 let keyCounter = 0
 
@@ -25,6 +33,8 @@ function newKey(): string {
 }
 
 function deterministic() {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(PINNED_NOW)
   resetMockApi()
   configureMockApi({ failureRate: 0, minDelayMs: 0, maxDelayMs: 0 })
 }
@@ -228,8 +238,10 @@ describe('createBooking idempotency', () => {
   beforeEach(deterministic)
 
   /** A bookable slot with a known 10 tickets remaining. */
+  // TOMORROW, not TODAY: every seeded slot today has started by 20:00 IST, so searching today
+  // for an unstarted slot makes these tests fail in the evening. firstBookableSlot does the same.
   async function slotWithTenRemaining() {
-    const slots = await getSlots('guruvayur', TODAY)
+    const slots = await getSlots('guruvayur', TOMORROW)
     const found = slots.find(
       (candidate) => candidate.remaining > 0 && !hasStarted(candidate.startsAt),
     )
