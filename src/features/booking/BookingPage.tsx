@@ -5,6 +5,7 @@ import { useUrlSelection } from '../../hooks/useUrlSelection'
 import type {
   Booking,
   BookingDetails,
+  BookingId,
   IdempotencyKey,
   Temple,
 } from '../../types/booking'
@@ -56,6 +57,10 @@ export function BookingPage() {
     null,
   )
 
+  // Where focus goes when a booking succeeds, and which booking it has already been moved for.
+  const confirmationRef = useRef<HTMLParagraphElement>(null)
+  const focusedBookingId = useRef<BookingId | null>(null)
+
   const templeKey = `temples:${templeReload}`
   const selectionKey = selectionKeyOf(selection)
   const currentWork = work.key === selectionKey ? work : emptyWork(selectionKey)
@@ -76,6 +81,21 @@ export function BookingPage() {
       active = false
     }
   }, [templeKey, adoptKnownTemple])
+
+  /**
+   * A booking that has just succeeded takes focus, so the devotee lands on the result instead of
+   * being left where the Book button used to be. Focusing the message also makes a screen reader
+   * read it, which is the belt to the live region's braces.
+   */
+  useEffect(() => {
+    if (confirmation === null) {
+      focusedBookingId.current = null
+      return
+    }
+    if (focusedBookingId.current === confirmation.id) return
+    focusedBookingId.current = confirmation.id
+    confirmationRef.current?.focus()
+  }, [confirmation])
 
   const { state: slots, reload: reloadSlots } = useSlots(selection.templeId, selection.date)
 
@@ -236,11 +256,18 @@ export function BookingPage() {
         </>
       ) : null}
 
-      <div aria-live="polite" className="mt-6">
+      {/*
+        The live region is mounted for the whole life of the page, empty until there is something
+        to say. A region that appears at the same moment as its content is announced unreliably,
+        so the container never leaves the DOM; only the message inside it comes and goes.
+      */}
+      <div aria-live="polite" aria-atomic="true" className="mt-6">
         {confirmation ? (
           <p
+            ref={confirmationRef}
+            tabIndex={-1}
             role="status"
-            className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900"
+            className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-900 focus:outline-none focus:ring-2 focus:ring-green-700"
           >
             Booked {confirmation.tickets} ticket{confirmation.tickets === 1 ? '' : 's'} for{' '}
             {confirmation.templeName}. Booking reference {confirmation.id}.
