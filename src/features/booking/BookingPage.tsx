@@ -38,8 +38,10 @@ export function BookingPage() {
   const [confirmation, setConfirmation] = useState<Booking | null>(null)
   const [bookingError, setBookingError] = useState<string | null>(null)
 
-  // The key that identifies the current booking attempt to the API. It is kept across retries of
-  // that attempt and renewed once the attempt has succeeded or the devotee moves to another one.
+  // Guards one booking attempt. `inFlight` stops a second submission from starting a second
+  // request even before React has re-rendered the disabled button; `attemptKey` is the key that
+  // identifies this attempt to the API, kept across retries and renewed once the attempt is done.
+  const inFlight = useRef(false)
   const attemptKey = useRef<IdempotencyKey | null>(null)
 
   const dates = nextSevenDays()
@@ -108,6 +110,9 @@ export function BookingPage() {
 
   async function book(details: BookingDetails) {
     if (!selectedSlot) return
+    // A second tap while the first request is still in flight is the same attempt, not a new one.
+    if (inFlight.current) return
+    inFlight.current = true
 
     // A retry of a failed attempt sends the key the failed request carried, so the API can tell
     // it apart from a second booking.
@@ -128,6 +133,7 @@ export function BookingPage() {
       // retrying with it cannot book twice if the failed request reached the API after all.
       setBookingError(errorMessage(error))
     } finally {
+      inFlight.current = false
       setSubmitting(false)
     }
   }
