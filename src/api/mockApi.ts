@@ -291,5 +291,12 @@ export async function cancelBooking(bookingId: BookingId): Promise<Booking> {
   const slot = slots.find((candidate) => candidate.id === booking.slotId)
   if (slot) slot.remaining += booking.tickets
 
+  // The idempotency entry promised "this key already produced a live booking". Cancelling makes
+  // that untrue, so the entry is dropped: a later repeat of the key books afresh rather than
+  // resolving with a cancelled record the caller would read as a success.
+  for (const [key, booked] of processedKeys) {
+    if (booked.id === booking.id) processedKeys.delete(key)
+  }
+
   return clone(booking)
 }

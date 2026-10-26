@@ -326,6 +326,30 @@ describe('createBooking idempotency', () => {
     expect(__getSlotById(slot.id)?.remaining).toBe(8)
   })
 
+  it('books afresh when a key is repeated after its booking was cancelled', async () => {
+    const slots = await getSlots('guruvayur', TOMORROW)
+    const slot = slots.find((candidate) => candidate.remaining > 2)
+    if (!slot) throw new Error('no bookable slot')
+    const before = __getSlotById(slot.id)?.remaining ?? 0
+    const request = {
+      slotId: slot.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 1,
+      idempotencyKey: 'cancel-then-repeat',
+    }
+
+    const first = await createBooking(request)
+    await cancelBooking(first.id)
+    expect(__getSlotById(slot.id)?.remaining).toBe(before)
+
+    const second = await createBooking(request)
+
+    expect(second.id).not.toBe(first.id)
+    expect(second.status).toBe('confirmed')
+    expect(__getSlotById(slot.id)?.remaining).toBe(before - 1)
+  })
+
   it('rejects a request that carries no idempotency key', async () => {
     const slot = await slotWithTenRemaining()
 
