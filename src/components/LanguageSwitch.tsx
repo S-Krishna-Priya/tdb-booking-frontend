@@ -21,7 +21,8 @@ export function LanguageSwitch() {
         {LANGUAGES.map((option) => (
           <label
             key={option}
-            className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-slate-700"
+            // py-1 keeps the whole label — not just the 16px radio — a target of at least 24px.
+            className="flex cursor-pointer items-center gap-1.5 py-1 text-sm font-medium text-slate-700"
           >
             <input
               type="radio"
