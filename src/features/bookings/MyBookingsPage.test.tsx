@@ -81,9 +81,27 @@ beforeEach(async () => {
   api.configureMockApi({ failureRate: 0, minDelayMs: 0, maxDelayMs: 0 })
   api.__setSlots([MORNING, EVENING])
 
-  await api.createBooking({ slotId: 'morning', name: 'Asha', phone: PHONE, tickets: 2 })
-  await api.createBooking({ slotId: 'evening', name: 'Asha', phone: PHONE, tickets: 3 })
-  await api.createBooking({ slotId: 'evening', name: 'Biju', phone: OTHER_PHONE, tickets: 1 })
+  await api.createBooking({
+    slotId: 'morning',
+    name: 'Asha',
+    phone: PHONE,
+    tickets: 2,
+    idempotencyKey: 'seed-asha-morning',
+  })
+  await api.createBooking({
+    slotId: 'evening',
+    name: 'Asha',
+    phone: PHONE,
+    tickets: 3,
+    idempotencyKey: 'seed-asha-evening',
+  })
+  await api.createBooking({
+    slotId: 'evening',
+    name: 'Biju',
+    phone: OTHER_PHONE,
+    tickets: 1,
+    idempotencyKey: 'seed-biju-evening',
+  })
 })
 
 afterEach(() => {

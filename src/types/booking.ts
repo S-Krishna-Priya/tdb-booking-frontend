@@ -34,12 +34,23 @@ export interface Booking {
   createdAt: string
 }
 
+export type IdempotencyKey = string
+
 export interface CreateBookingRequest {
   slotId: SlotId
   name: string
   phone: string
   tickets: number
+  /**
+   * Identifies one logical booking attempt. The same key is sent again when that attempt is
+   * retried, so the API can recognise the repeat and return the booking it already made rather
+   * than creating a second one. A genuinely new booking carries a new key.
+   */
+  idempotencyKey: IdempotencyKey
 }
+
+/** The part of a booking request the devotee fills in; the page adds the slot and the key. */
+export type BookingDetails = Pick<CreateBookingRequest, 'name' | 'phone' | 'tickets'>
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode

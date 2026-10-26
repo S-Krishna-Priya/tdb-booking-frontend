@@ -5,7 +5,7 @@ interface SlotListProps {
   slots: readonly Slot[]
   selectedSlotId: string | null
   onSelect: (slotId: string) => void
-  now?: Date
+  now: Date
 }
 
 function unavailableReason(slot: Slot, now: Date): string | null {
@@ -14,7 +14,7 @@ function unavailableReason(slot: Slot, now: Date): string | null {
   return null
 }
 
-export function SlotList({ slots, selectedSlotId, onSelect, now = new Date() }: SlotListProps) {
+export function SlotList({ slots, selectedSlotId, onSelect, now }: SlotListProps) {
   return (
     <fieldset className="mt-6 border-0 p-0">
       <legend className="text-base font-semibold text-slate-900">Available slots</legend>
