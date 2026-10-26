@@ -23,7 +23,11 @@ export interface Selection {
 
 /** The IST days that can be selected, today first. */
 export function bookingDates(now: Date = new Date()): string[] {
-  const today = istDateKey(now)
+  return bookingDatesFrom(istDateKey(now))
+}
+
+/** The bookable window starting at an IST day key. Taking the key keeps it a pure function of it. */
+export function bookingDatesFrom(today: string): string[] {
   return Array.from({ length: BOOKING_WINDOW_DAYS }, (_, offset) => addIstDays(today, offset))
 }
 
