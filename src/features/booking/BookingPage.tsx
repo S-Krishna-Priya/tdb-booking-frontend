@@ -11,7 +11,7 @@ import type {
 import { formatIstDateKey, istDateKey } from '../../utils/datetime'
 import { errorMessage } from '../../utils/errors'
 import { createIdempotencyKey } from '../../utils/idempotency'
-import { bookingDates, type Selection } from '../../utils/selection'
+import { bookingDatesFrom, type Selection } from '../../utils/selection'
 import { BookingForm } from './BookingForm'
 import { SlotList } from './SlotList'
 
@@ -41,7 +41,7 @@ function selectionKeyOf(selection: Selection): string {
 
 export function BookingPage() {
   const todayKey = istDateKey(new Date())
-  const dates = useMemo(() => bookingDates(), [todayKey])
+  const dates = useMemo(() => bookingDatesFrom(todayKey), [todayKey])
   const { selection, select, adoptKnownTemple } = useUrlSelection(dates)
   const [temples, setTemples] = useState<Loaded<Temple[]> | null>(null)
   const [templeReload, setTempleReload] = useState(0)
@@ -122,13 +122,22 @@ export function BookingPage() {
     setWork({ ...currentWork, error: null, confirmation: null })
     try {
       const booking = await createBooking({ slotId: selectedSlot.id, ...details, idempotencyKey })
-      setWork({ key, selectedSlotId: null, confirmation: booking, error: null })
+      // Only land the result if the devotee is still on the selection they booked from. Stamping
+      // `key` unconditionally would re-tag `work` with the old selection and silently clear the
+      // slot they have since picked somewhere else.
+      setWork((previous) =>
+        previous.key === key
+          ? { key, selectedSlotId: null, confirmation: booking, error: null }
+          : previous,
+      )
       startNewAttempt()
       reloadSlots()
     } catch (error) {
       // The attempt failed, so the form keeps what the devotee typed and the key is kept too:
       // retrying with it cannot book twice if the failed request reached the API after all.
-      setWork((previous) => ({ ...previous, key, error: errorMessage(error) }))
+      setWork((previous) =>
+        previous.key === key ? { ...previous, error: errorMessage(error) } : previous,
+      )
     } finally {
       inFlight.current = false
       setSubmitting(false)
