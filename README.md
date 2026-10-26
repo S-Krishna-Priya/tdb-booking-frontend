@@ -3,9 +3,8 @@
 A React + TypeScript frontend for booking temple darshan time slots: browse slot
 availability, reserve a slot, and manage existing bookings.
 
-> **Status:** initial project setup only. None of the five assessment problems
-> (P1–P5) have been implemented yet. The app currently renders a landing page
-> and a single smoke test.
+> **Status:** P1 is implemented and merged. P2–P5 follow on their own branches
+> and pull requests, in order.
 
 ---
 
@@ -47,8 +46,11 @@ None of the above are implemented yet.
 
 ## Prerequisites
 
-- **Node.js** 20.19+ or 22.12+ (developed on Node 24) — <https://nodejs.org>
-- **npm** 10+ (ships with Node)
+- **Node.js** 24.15+ — developed and verified on **24.22.1 (LTS)**. Node 22.22.2+
+  or 26+ also work; the toolchain (jsdom 30) requires
+  `^22.22.2 || ^24.15.0 || >=26.0.0`, so older Node versions install with
+  `EBADENGINE` warnings. <https://nodejs.org>
+- **npm** 11+ (ships with Node) — verified on 11.19.1
 - **Git** — <https://git-scm.com>
 
 Check your versions:
@@ -138,9 +140,10 @@ tdb-booking-frontend/
 └── vite.config.ts                 # Vite + Tailwind plugins and Vitest config
 ```
 
-The `api/`, `components/`, `features/`, `hooks/`, `types/` and `utils/`
-directories are currently empty — they are filled in as the problems are
-implemented.
+`src/api/` holds the in-memory mock API, `src/types/` the shared domain types,
+`src/utils/` pure helpers (including IST date and time formatting), and
+`src/features/` one directory per problem area. `src/components/` and
+`src/hooks/` are filled in as later problems need them.
 
 ---
 
@@ -167,7 +170,7 @@ Each problem is delivered as follows:
    ```bash
    git checkout main
    git pull origin main
-   git checkout -b feat/p1-slot-list-and-booking-form
+   git checkout -b feature/p1-slot-list
    ```
 
 2. Implement the problem, with tests, committing in meaningful steps.
@@ -181,7 +184,7 @@ Each problem is delivered as follows:
 4. Push the branch and open a pull request into `main`:
 
    ```bash
-   git push -u origin feat/p1-slot-list-and-booking-form
+   git push -u origin feature/p1-slot-list
    ```
 
 5. Fill in the pull request template (see below), then merge into `main` once
@@ -191,11 +194,11 @@ Suggested branch names:
 
 | Problem | Branch |
 | ------- | ------ |
-| P1 | `feat/p1-slot-list-and-booking-form` |
-| P2 | `feat/p2-shareable-filters-url-state` |
-| P3 | `feat/p3-safe-submission-retry` |
-| P4 | `feat/p4-my-bookings-cancellation` |
-| P5 | `feat/p5-accessibility-malayalam-localization` |
+| P1 | `feature/p1-slot-list` |
+| P2 | `feature/p2-shareable-filters` |
+| P3 | `feature/p3-safe-submit` |
+| P4 | `feature/p4-my-bookings` |
+| P5 | `feature/p5-accessibility-malayalam` |
 
 ---
 
@@ -227,7 +230,7 @@ Steps a reviewer can follow to verify this change.
 
 ## Progress
 
-- [ ] **P1** — Slot list and booking form
+- [x] **P1** — Slot list and booking form
 - [ ] **P2** — Shareable filters and URL state
 - [ ] **P3** — Safe booking submission and retry handling
 - [ ] **P4** — My bookings and cancellation
@@ -241,7 +244,7 @@ Links are added here as each problem is submitted.
 
 | Problem | Pull request | Status |
 | ------- | ------------ | ------ |
-| P1 — Slot list and booking form | _not submitted yet_ | Not started |
+| P1 — Slot list and booking form | [#6](https://github.com/S-Krishna-Priya/tdb-booking-frontend/pull/6) | Merged |
 | P2 — Shareable filters and URL state | _not submitted yet_ | Not started |
 | P3 — Safe booking submission and retry handling | _not submitted yet_ | Not started |
 | P4 — My bookings and cancellation | _not submitted yet_ | Not started |

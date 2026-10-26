@@ -5,13 +5,13 @@ import { errorMessage } from '../utils/errors'
 
 export type AsyncState<T> =
   | { status: 'loading' }
-  | { status: 'success'; data: T }
+  | { status: 'success'; data: T; loadedAt: Date }
   | { status: 'error'; message: string }
 
 interface SettledSlots {
   /** The selection the stored result belongs to. */
   key: string
-  result: { ok: true; data: Slot[] } | { ok: false; message: string }
+  result: { ok: true; data: Slot[]; at: Date } | { ok: false; message: string }
 }
 
 export interface SlotsResource {
@@ -47,7 +47,7 @@ export function useSlots(templeId: string, date: string): SlotsResource {
 
     getSlots(templeId, date)
       .then((data) => {
-        if (isCurrent()) setSettled({ key, result: { ok: true, data } })
+        if (isCurrent()) setSettled({ key, result: { ok: true, data, at: new Date() } })
       })
       .catch((error: unknown) => {
         if (isCurrent()) setSettled({ key, result: { ok: false, message: errorMessage(error) } })
@@ -68,7 +68,7 @@ export function useSlots(templeId: string, date: string): SlotsResource {
 
   return {
     state: settled.result.ok
-      ? { status: 'success', data: settled.result.data }
+      ? { status: 'success', data: settled.result.data, loadedAt: settled.result.at }
       : { status: 'error', message: settled.result.message },
     reload,
   }

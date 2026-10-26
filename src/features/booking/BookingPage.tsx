@@ -9,7 +9,9 @@ import { bookingDates, type Selection } from '../../utils/selection'
 import { BookingForm } from './BookingForm'
 import { SlotList } from './SlotList'
 
-type Loaded<T> = { key: string; ok: true; data: T } | { key: string; ok: false; message: string }
+type Loaded<T> =
+  | { key: string; ok: true; data: T; at: Date }
+  | { key: string; ok: false; message: string }
 
 /**
  * Everything the devotee has done to one selection. It carries the selection it belongs to, so
@@ -49,7 +51,7 @@ export function BookingPage() {
     getTemples()
       .then((data) => {
         if (!active) return
-        setTemples({ key: templeKey, ok: true, data })
+        setTemples({ key: templeKey, ok: true, data, at: new Date() })
         adoptKnownTemple(data.map((temple) => temple.id))
       })
       .catch((error: unknown) => {
@@ -177,6 +179,7 @@ export function BookingPage() {
             slots={slotData}
             selectedSlotId={currentWork.selectedSlotId}
             onSelect={handleSelectSlot}
+            now={slots.status === 'success' ? slots.loadedAt : new Date()}
           />
           <BookingForm
             slot={selectedSlot}
