@@ -41,6 +41,31 @@ describe('seed and fixtures are independent of the hour the suite runs', () => {
     expect(slots.some((slot) => hasStarted(slot.startsAt, new Date()))).toBe(true)
   })
 
+  it.each(LATE_IST_HOURS)('dedupes a repeated idempotency key at %i:30 IST', async (hour) => {
+    pinIstHour(hour)
+    resetMockApi()
+    configureMockApi({ failureRate: 0, minDelayMs: 0, maxDelayMs: 0 })
+
+    const tomorrow = addIstDays(istDateKey(new Date()), 1)
+    const slots = await getSlots('guruvayur', tomorrow)
+    const target = slots.find(
+      (slot) => slot.remaining > 0 && !hasStarted(slot.startsAt, new Date()),
+    )
+    if (!target) throw new Error('no bookable slot')
+
+    const request = {
+      slotId: target.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 1,
+      idempotencyKey: `repeat-${hour}`,
+    }
+    const first = await createBooking(request)
+    const repeat = await createBooking(request)
+
+    expect(repeat.id).toBe(first.id)
+  })
+
   it.each(LATE_IST_HOURS)('books 3 of 10 leaving 7 at %i:30 IST', async (hour) => {
     pinIstHour(hour)
     resetMockApi()
