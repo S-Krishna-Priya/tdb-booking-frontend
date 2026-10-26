@@ -94,7 +94,9 @@ describe('work belonging to one selection never leaks into another', () => {
     await user.click(screen.getByRole('button', { name: /^book$/i }))
 
     await user.selectOptions(screen.getByRole('combobox', { name: /^date$/i }), TOMORROW)
-    await screen.findByRole('radio', { name: /6 of 50 tickets remaining/ })
+    const tomorrowSlot = await screen.findByRole('radio', { name: /6 of 50 tickets remaining/ })
+    await user.click(tomorrowSlot)
+    expect(tomorrowSlot).toBeChecked()
 
     await act(async () => {
       booking.resolve({
@@ -117,6 +119,8 @@ describe('work belonging to one selection never leaks into another', () => {
     // shown here. The booking itself was still made, and is reachable under My bookings.
     expect(create).toHaveBeenCalledTimes(1)
     expect(screen.queryByText(/booked \d+ ticket/i)).not.toBeInTheDocument()
+    // The success path must leave this selection alone, exactly as the failure path does.
+    expect(screen.getByRole('radio', { name: /6 of 50 tickets remaining/ })).toBeChecked()
   })
 
   it('shows loading, not the old error, when returning to a selection that failed earlier', async () => {

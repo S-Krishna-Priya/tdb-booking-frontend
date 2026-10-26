@@ -226,8 +226,16 @@ export function BookingPage() {
         </div>
       ) : null}
 
+      {/*
+        Announced while slots load, but NOT while a booking confirmation is on screen. The reload
+        that follows a successful booking would otherwise put this alongside the confirmation, and
+        two polite regions competing is how the booking result gets buried.
+      */}
       {slots.status === 'loading' ? (
-        <p role="status" className="mt-6 text-sm text-slate-600">
+        <p
+          {...(confirmation ? {} : { role: 'status' })}
+          className="mt-6 text-sm text-slate-600"
+        >
           {t.booking.loadingSlots}
         </p>
       ) : null}

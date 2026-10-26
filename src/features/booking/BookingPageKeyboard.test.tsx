@@ -222,3 +222,28 @@ describe('the booking flow with the keyboard alone', () => {
     expect(screen.getByRole('button', { name: 'Find my bookings' })).toBeInTheDocument()
   })
 })
+
+describe('the booking result is the only thing announced when it lands', () => {
+  it('does not put a competing live region on screen while the slots reload', async () => {
+    // The real mock API takes 200-1500ms, so the reload triggered by a successful booking is
+    // still in flight while the confirmation is on screen. Only the confirmation may be live.
+    configureMockApi({ minDelayMs: 50, maxDelayMs: 50 })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+
+    render(<App />)
+    await screen.findByRole('radio', { name: FIRST_OPEN_SLOT })
+
+    await user.click(screen.getByRole('radio', { name: FIRST_OPEN_SLOT }))
+    await user.type(screen.getByLabelText(/name/i), 'Asha')
+    await user.type(screen.getByLabelText(/phone number/i), '9876543210')
+    await user.click(screen.getByRole('button', { name: /^book$/i }))
+
+    const confirmation = await screen.findByText(/booked 1 ticket/i)
+
+    // The slot reload is in flight right now. Exactly one live region may be present, and it
+    // must be the booking result.
+    const live = screen.getAllByRole('status')
+    expect(live).toHaveLength(1)
+    expect(live[0]).toBe(confirmation)
+  })
+})
