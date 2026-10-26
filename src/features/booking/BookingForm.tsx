@@ -40,6 +40,7 @@ export function BookingForm({ slot, submitting, onSubmit }: BookingFormProps) {
         <input
           id="booking-name"
           name="name"
+          autoComplete="name"
           value={name}
           onChange={(event) => setName(event.target.value)}
           aria-invalid={errors.name ? true : undefined}
@@ -60,7 +61,9 @@ export function BookingForm({ slot, submitting, onSubmit }: BookingFormProps) {
         <input
           id="booking-phone"
           name="phone"
+          type="tel"
           inputMode="numeric"
+          autoComplete="tel-national"
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
           aria-invalid={errors.phone ? true : undefined}

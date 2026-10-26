@@ -42,7 +42,9 @@ export function MyBookingsPage() {
           <input
             id="lookup-phone"
             name="phone"
+            type="tel"
             inputMode="numeric"
+            autoComplete="tel-national"
             value={phone}
             onChange={(event) => {
               setPhone(event.target.value)
