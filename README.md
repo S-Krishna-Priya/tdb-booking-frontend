@@ -3,8 +3,8 @@
 A React + TypeScript frontend for booking temple darshan time slots: browse slot
 availability, reserve a slot, and manage existing bookings.
 
-> **Status:** P1 is implemented and merged. P2–P5 follow on their own branches
-> and pull requests, in order.
+> **Status:** P1 and P2 are implemented and merged. P3–P5 follow on their own
+> branches and pull requests, in order.
 
 ---
 
@@ -231,7 +231,7 @@ Steps a reviewer can follow to verify this change.
 ## Progress
 
 - [x] **P1** — Slot list and booking form
-- [ ] **P2** — Shareable filters and URL state
+- [x] **P2** — Shareable filters and race-safe slot loading
 - [ ] **P3** — Safe booking submission and retry handling
 - [ ] **P4** — My bookings and cancellation
 - [ ] **P5** — Accessibility and Malayalam localization
@@ -245,7 +245,7 @@ Links are added here as each problem is submitted.
 | Problem | Pull request | Status |
 | ------- | ------------ | ------ |
 | P1 — Slot list and booking form | [#6](https://github.com/S-Krishna-Priya/tdb-booking-frontend/pull/6) | Merged |
-| P2 — Shareable filters and URL state | _not submitted yet_ | Not started |
+| P2 — Shareable filters and race-safe slot loading | [#7](https://github.com/S-Krishna-Priya/tdb-booking-frontend/pull/7) | Merged |
 | P3 — Safe booking submission and retry handling | _not submitted yet_ | Not started |
 | P4 — My bookings and cancellation | _not submitted yet_ | Not started |
 | P5 — Accessibility and Malayalam localization | _not submitted yet_ | Not started |

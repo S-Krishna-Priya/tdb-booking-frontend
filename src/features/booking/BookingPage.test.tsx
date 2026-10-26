@@ -37,6 +37,8 @@ const FULL = slot({ id: 'full', startsAt: fromNow(2), capacity: 20, remaining: 0
 const STARTED = slot({ id: 'started', startsAt: fromNow(-1), capacity: 25, remaining: 8 })
 
 beforeEach(() => {
+  // The page keeps its selection in the URL, so every test starts from a bare one.
+  window.history.replaceState(null, '', '/')
   resetMockApi()
   configureMockApi({ failureRate: 0, minDelayMs: 0, maxDelayMs: 0 })
   __setSlots([
