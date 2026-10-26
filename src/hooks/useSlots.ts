@@ -55,6 +55,11 @@ export function useSlots(templeId: string, date: string): SlotsResource {
 
     return () => {
       active = false
+      // Leaving this selection discards its result. The key alone cannot tell a stored result
+      // apart from a fresh one, because coming back builds the same key again — without this, a
+      // selection that failed earlier re-shows that error while its new request is still in
+      // flight.
+      setSettled(null)
     }
   }, [templeId, date, key])
 
