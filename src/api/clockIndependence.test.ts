@@ -58,7 +58,13 @@ describe('seed and fixtures are independent of the hour the suite runs', () => {
     if (!live) throw new Error('slot missing')
     live.remaining = 10
 
-    await createBooking({ slotId: target.id, name: 'Asha', phone: '9876543210', tickets: 3 })
+    await createBooking({
+      slotId: target.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 3,
+      idempotencyKey: `clock-independence-${hour}`,
+    })
 
     expect(__getSlotById(target.id)?.remaining).toBe(7)
   })

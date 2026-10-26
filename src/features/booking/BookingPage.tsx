@@ -1,10 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createBooking, getTemples } from '../../api/mockApi'
 import { useSlots } from '../../hooks/useSlots'
 import { useUrlSelection } from '../../hooks/useUrlSelection'
-import type { Booking, Temple } from '../../types/booking'
+import type {
+  Booking,
+  BookingDetails,
+  IdempotencyKey,
+  Temple,
+} from '../../types/booking'
 import { formatIstDateKey, istDateKey } from '../../utils/datetime'
 import { errorMessage } from '../../utils/errors'
+import { createIdempotencyKey } from '../../utils/idempotency'
 import { bookingDates, type Selection } from '../../utils/selection'
 import { BookingForm } from './BookingForm'
 import { SlotList } from './SlotList'
@@ -42,6 +48,14 @@ export function BookingPage() {
   const [work, setWork] = useState<SelectionWork>(() => emptyWork(''))
   const [submitting, setSubmitting] = useState(false)
 
+  // Guards one booking attempt. `inFlight` stops a second submission from starting a second
+  // request even before React has re-rendered the disabled button; `attemptKey` identifies this
+  // attempt to the API, kept across retries and renewed once the attempt is done.
+  const inFlight = useRef(false)
+  const attemptKey = useRef<{ selectionKey: string; slotId: string; value: IdempotencyKey } | null>(
+    null,
+  )
+
   const templeKey = `temples:${templeReload}`
   const selectionKey = selectionKeyOf(selection)
   const currentWork = work.key === selectionKey ? work : emptyWork(selectionKey)
@@ -69,22 +83,54 @@ export function BookingPage() {
   const slotData = slots.status === 'success' ? slots.data : null
   const selectedSlot = slotData?.find((slot) => slot.id === currentWork.selectedSlotId) ?? null
 
+  /** Starts a new booking attempt, so a genuinely different booking never reuses a key. */
+  function startNewAttempt() {
+    attemptKey.current = null
+  }
+
+  /**
+   * The key for the current attempt, minted on first use and kept across retries of that attempt.
+   * It is bound to the selection and the slot it was minted for, so changing temple, date or slot
+   * — including by going Back — mints a fresh key rather than letting the API answer a genuinely
+   * new booking with the one it already made.
+   */
+  function keyForAttempt(slotId: string): IdempotencyKey {
+    const held = attemptKey.current
+    if (held && held.selectionKey === selectionKey && held.slotId === slotId) return held.value
+    const value = createIdempotencyKey()
+    attemptKey.current = { selectionKey, slotId, value }
+    return value
+  }
+
   function handleSelectSlot(slotId: string) {
+    if (slotId !== currentWork.selectedSlotId) startNewAttempt()
     setWork({ ...currentWork, selectedSlotId: slotId, error: null })
   }
 
-  async function book(details: { name: string; phone: string; tickets: number }) {
+  async function book(details: BookingDetails) {
     if (!selectedSlot) return
+    // A second tap while the first request is still in flight is the same attempt, not a new one.
+    if (inFlight.current) return
+    inFlight.current = true
+
+    // A retry of a failed attempt sends the key the failed request carried, so the API can tell
+    // it apart from a second booking.
+    const idempotencyKey = keyForAttempt(selectedSlot.id)
+
     const key = selectionKey
     setSubmitting(true)
     setWork({ ...currentWork, error: null, confirmation: null })
     try {
-      const booking = await createBooking({ slotId: selectedSlot.id, ...details })
+      const booking = await createBooking({ slotId: selectedSlot.id, ...details, idempotencyKey })
       setWork({ key, selectedSlotId: null, confirmation: booking, error: null })
+      startNewAttempt()
       reloadSlots()
     } catch (error) {
+      // The attempt failed, so the form keeps what the devotee typed and the key is kept too:
+      // retrying with it cannot book twice if the failed request reached the API after all.
       setWork((previous) => ({ ...previous, key, error: errorMessage(error) }))
     } finally {
+      inFlight.current = false
       setSubmitting(false)
     }
   }

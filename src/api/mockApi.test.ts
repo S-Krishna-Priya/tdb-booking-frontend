@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  __getAllBookings,
   __getSlotById,
   cancelBooking,
   configureMockApi,
@@ -9,11 +10,19 @@ import {
   getTemples,
   resetMockApi,
 } from './mockApi'
-import { ApiError } from '../types/booking'
+import { ApiError, type Booking } from '../types/booking'
 import { addIstDays, hasStarted, istDateKey } from '../utils/datetime'
 
 const TODAY = istDateKey(new Date())
 const TOMORROW = addIstDays(TODAY, 1)
+
+let keyCounter = 0
+
+/** A fresh idempotency key, so each call here counts as a distinct booking attempt. */
+function newKey(): string {
+  keyCounter += 1
+  return `attempt-${String(keyCounter)}`
+}
 
 function deterministic() {
   resetMockApi()
@@ -74,7 +83,13 @@ describe('createBooking', () => {
     const slot = await firstBookableSlot()
     const before = slot.remaining
 
-    await createBooking({ slotId: slot.id, name: 'Asha', phone: '9876543210', tickets: 3 })
+    await createBooking({
+      slotId: slot.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 3,
+      idempotencyKey: newKey(),
+    })
 
     expect(__getSlotById(slot.id)?.remaining).toBe(before - 3)
   })
@@ -85,7 +100,13 @@ describe('createBooking', () => {
     if (!live) throw new Error('slot missing')
     live.remaining = 10
 
-    await createBooking({ slotId: slot.id, name: 'Asha', phone: '9876543210', tickets: 3 })
+    await createBooking({
+      slotId: slot.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 3,
+      idempotencyKey: newKey(),
+    })
 
     expect(__getSlotById(slot.id)?.remaining).toBe(7)
   })
@@ -97,7 +118,13 @@ describe('createBooking', () => {
     live.remaining = 2
 
     await expect(
-      createBooking({ slotId: slot.id, name: 'Asha', phone: '9876543210', tickets: 3 }),
+      createBooking({
+        slotId: slot.id,
+        name: 'Asha',
+        phone: '9876543210',
+        tickets: 3,
+        idempotencyKey: newKey(),
+      }),
     ).rejects.toMatchObject({ code: 'slot_full' })
     expect(__getSlotById(slot.id)?.remaining).toBe(2)
   })
@@ -108,7 +135,13 @@ describe('createBooking', () => {
     if (!full) throw new Error('no full future slot in seed')
 
     await expect(
-      createBooking({ slotId: full.id, name: 'Asha', phone: '9876543210', tickets: 1 }),
+      createBooking({
+        slotId: full.id,
+        name: 'Asha',
+        phone: '9876543210',
+        tickets: 1,
+        idempotencyKey: newKey(),
+      }),
     ).rejects.toMatchObject({ code: 'slot_full' })
   })
 
@@ -118,14 +151,26 @@ describe('createBooking', () => {
     if (!started) throw new Error('no started slot in seed')
 
     await expect(
-      createBooking({ slotId: started.id, name: 'Asha', phone: '9876543210', tickets: 1 }),
+      createBooking({
+        slotId: started.id,
+        name: 'Asha',
+        phone: '9876543210',
+        tickets: 1,
+        idempotencyKey: newKey(),
+      }),
     ).rejects.toMatchObject({ code: 'slot_started' })
   })
 
   it('rejects an invalid phone number', async () => {
     const slot = await firstBookableSlot()
     await expect(
-      createBooking({ slotId: slot.id, name: 'Asha', phone: '123', tickets: 1 }),
+      createBooking({
+        slotId: slot.id,
+        name: 'Asha',
+        phone: '123',
+        tickets: 1,
+        idempotencyKey: newKey(),
+      }),
     ).rejects.toMatchObject({ code: 'invalid_request' })
   })
 })
@@ -138,8 +183,20 @@ describe('getBookings and cancelBooking', () => {
     const slot = slots.find((candidate) => candidate.remaining > 2 && !hasStarted(candidate.startsAt))
     if (!slot) throw new Error('no bookable slot')
 
-    await createBooking({ slotId: slot.id, name: 'Asha', phone: '9876543210', tickets: 1 })
-    await createBooking({ slotId: slot.id, name: 'Biju', phone: '9000000000', tickets: 1 })
+    await createBooking({
+      slotId: slot.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 1,
+      idempotencyKey: newKey(),
+    })
+    await createBooking({
+      slotId: slot.id,
+      name: 'Biju',
+      phone: '9000000000',
+      tickets: 1,
+      idempotencyKey: newKey(),
+    })
 
     const asha = await getBookings('9876543210')
     expect(asha).toHaveLength(1)
@@ -157,11 +214,154 @@ describe('getBookings and cancelBooking', () => {
       name: 'Asha',
       phone: '9876543210',
       tickets: 2,
+      idempotencyKey: newKey(),
     })
     expect(__getSlotById(slot.id)?.remaining).toBe(before - 2)
 
     const cancelled = await cancelBooking(booking.id)
     expect(cancelled.status).toBe('cancelled')
     expect(__getSlotById(slot.id)?.remaining).toBe(before)
+  })
+})
+
+describe('createBooking idempotency', () => {
+  beforeEach(deterministic)
+
+  /** A bookable slot with a known 10 tickets remaining. */
+  async function slotWithTenRemaining() {
+    const slots = await getSlots('guruvayur', TODAY)
+    const found = slots.find(
+      (candidate) => candidate.remaining > 0 && !hasStarted(candidate.startsAt),
+    )
+    if (!found) throw new Error('no bookable slot in seed')
+    const live = __getSlotById(found.id)
+    if (!live) throw new Error('slot missing')
+    live.remaining = 10
+    return live
+  }
+
+  /**
+   * The caller's view of a request whose response was lost on the way back: the API processes it
+   * and keeps the booking, but the caller only ever learns that the call failed.
+   */
+  async function loseResponse(request: Promise<Booking>): Promise<never> {
+    await request.catch(() => undefined)
+    throw new ApiError('network', 'The network request failed. Please try again.')
+  }
+
+  it('returns the original booking when a request whose response was lost is retried', async () => {
+    const slot = await slotWithTenRemaining()
+    const request = {
+      slotId: slot.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 2,
+      idempotencyKey: 'attempt-lost-response',
+    }
+
+    await expect(loseResponse(createBooking(request))).rejects.toMatchObject({ code: 'network' })
+
+    // The request did reach the API: the booking exists even though the caller never saw it.
+    const afterFirst = __getAllBookings()
+    expect(afterFirst).toHaveLength(1)
+    expect(__getSlotById(slot.id)?.remaining).toBe(8)
+
+    const retry = await createBooking(request)
+
+    expect(__getAllBookings()).toHaveLength(1)
+    expect(retry.id).toBe(afterFirst[0]?.id)
+    expect(retry.tickets).toBe(2)
+    expect(__getSlotById(slot.id)?.remaining).toBe(8)
+  })
+
+  it('creates a second booking when a new attempt carries a new key', async () => {
+    const slot = await slotWithTenRemaining()
+    const details = { slotId: slot.id, name: 'Asha', phone: '9876543210', tickets: 2 }
+
+    const first = await createBooking({ ...details, idempotencyKey: 'attempt-1' })
+    const second = await createBooking({ ...details, idempotencyKey: 'attempt-2' })
+
+    expect(second.id).not.toBe(first.id)
+    expect(__getAllBookings()).toHaveLength(2)
+    expect(__getSlotById(slot.id)?.remaining).toBe(6)
+  })
+
+  it('books on retry when the failed request never reached the API', async () => {
+    const slot = await slotWithTenRemaining()
+    const request = {
+      slotId: slot.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 2,
+      idempotencyKey: 'attempt-never-arrived',
+    }
+
+    configureMockApi({ failureRate: 1 })
+    await expect(createBooking(request)).rejects.toMatchObject({ code: 'network' })
+    expect(__getAllBookings()).toHaveLength(0)
+
+    configureMockApi({ failureRate: 0 })
+    await createBooking(request)
+
+    expect(__getAllBookings()).toHaveLength(1)
+    expect(__getSlotById(slot.id)?.remaining).toBe(8)
+  })
+
+  it('answers a repeat of a key with the booking it already made, ignoring changed details', async () => {
+    const slot = await slotWithTenRemaining()
+    const request = {
+      slotId: slot.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 2,
+      idempotencyKey: 'attempt-edited',
+    }
+
+    const original = await createBooking(request)
+    const repeat = await createBooking({ ...request, tickets: 5 })
+
+    expect(repeat.id).toBe(original.id)
+    expect(repeat.tickets).toBe(2)
+    expect(__getAllBookings()).toHaveLength(1)
+    expect(__getSlotById(slot.id)?.remaining).toBe(8)
+  })
+
+  it('books afresh when a key is repeated after its booking was cancelled', async () => {
+    const slots = await getSlots('guruvayur', TOMORROW)
+    const slot = slots.find((candidate) => candidate.remaining > 2)
+    if (!slot) throw new Error('no bookable slot')
+    const before = __getSlotById(slot.id)?.remaining ?? 0
+    const request = {
+      slotId: slot.id,
+      name: 'Asha',
+      phone: '9876543210',
+      tickets: 1,
+      idempotencyKey: 'cancel-then-repeat',
+    }
+
+    const first = await createBooking(request)
+    await cancelBooking(first.id)
+    expect(__getSlotById(slot.id)?.remaining).toBe(before)
+
+    const second = await createBooking(request)
+
+    expect(second.id).not.toBe(first.id)
+    expect(second.status).toBe('confirmed')
+    expect(__getSlotById(slot.id)?.remaining).toBe(before - 1)
+  })
+
+  it('rejects a request that carries no idempotency key', async () => {
+    const slot = await slotWithTenRemaining()
+
+    await expect(
+      createBooking({
+        slotId: slot.id,
+        name: 'Asha',
+        phone: '9876543210',
+        tickets: 1,
+        idempotencyKey: '  ',
+      }),
+    ).rejects.toMatchObject({ code: 'invalid_request' })
+    expect(__getAllBookings()).toHaveLength(0)
   })
 })
